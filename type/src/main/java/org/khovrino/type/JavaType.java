@@ -1,6 +1,7 @@
 package org.khovrino.type;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
@@ -20,6 +21,22 @@ import java.util.Set;
 import java.util.Stack;
 
 public final class JavaType {
+
+    public static <T> Constructor<T> getDeclaredConstructor(Class<T> clazz, Class<?>... parameterTypes) throws NoSuchMethodException {
+        if (Modifier.isStatic(clazz.getModifiers())) {
+            return clazz.getDeclaredConstructor(parameterTypes);
+        } else {
+            Class<?> parentType = clazz.getDeclaringClass();
+            if (parentType == null) {
+                return clazz.getDeclaredConstructor(parameterTypes);
+            } else {
+                Class<?>[] parentAndParameterTypes = new Class<?>[1 + parameterTypes.length];
+                parentAndParameterTypes[0] = parentType;
+                System.arraycopy(parameterTypes, 0, parentAndParameterTypes, 1, parameterTypes.length);
+                return clazz.getDeclaredConstructor(parentAndParameterTypes);
+            }
+        }
+    }
 
     public static Object newInstance(Type type) {
         Class<?> c = rawType(type);
