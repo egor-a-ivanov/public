@@ -7,9 +7,11 @@ import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -53,6 +55,23 @@ public class TypeVariableTest {
         assertEquals(List.of(p, q, r, s, t1), getEffectiveTypeParameters(constructor));
         assertEquals(List.of(p, q, r, s, t2), getEffectiveTypeParameters(nonStaticMethod));
         assertEquals(List.of(t3), getEffectiveTypeParameters(staticMethod));
+
+        List<?> list = new LinkedList<Number>();
+        this.doubleList(list);
+        //appendList(list, list);
+
+        var x = new ArrayList<Supplier<?>>();
+        x.add(() -> 5);
+        Supplier<?> sup = x.get(0);
+        List<Supplier<?>> y = x;
+        appendList(x, x);
+
+        List<?> list1 = new ArrayList<>();
+        List<? extends Number> list2 = new ArrayList<>();
+        list1 = list2;
+        list2 = (List<? extends Number>) list1; // unchecked cast
+
+
     }
 
     private List<TypeVariable<?>> getEffectiveTypeParameters(GenericDeclaration d) {
@@ -76,4 +95,7 @@ public class TypeVariableTest {
         Collections.addAll(result, d.getTypeParameters());
     }
 
+    private <T> void doubleList(List<T> srcAndDst) {appendList(srcAndDst, srcAndDst);}
+
+    private <T> void appendList(List<T> src, List<T> dst) {}
 }
