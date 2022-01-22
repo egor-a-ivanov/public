@@ -36,8 +36,12 @@ public final class Interval<T extends Comparable<? super T>> {
         return upperBound;
     }
 
-    private boolean isUnbounded() {
+    public boolean isUnbounded() {
         return lowerBound.isNegativeInfinity() && upperBound.isPositiveInfinity();
+    }
+
+    public boolean contains(T point) {
+        return lowerBound.isBefore(point) && upperBound.isAfter(point);
     }
 
     @Override
