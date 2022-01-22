@@ -4,6 +4,22 @@ import java.util.Objects;
 
 public final class Bound<T extends Comparable<? super T>> implements Comparable<Bound<T>> {
 
+    public static <T extends Comparable<? super T>> Bound<T> before(T point) {
+        return near(point, false);
+    }
+
+    public static <T extends Comparable<? super T>> Bound<T> after(T point) {
+        return near(point, true);
+    }
+
+    public static <T extends Comparable<? super T>> Bound<T> near(T point, boolean after) {
+        return Discrete.adapter(point)
+                .map(adapter -> after
+                        ? adapter.nextValue(point).map(next -> new Bound<>(next, false)).orElse(positiveInfinity())
+                        : adapter.prevValue(point).map(prev -> new Bound<>(point, false)).orElse(negativeInfinity()))
+                .orElseGet(() -> new Bound<>(point, after));
+    }
+
     @SuppressWarnings("unchecked")
     public static <T extends Comparable<? super T>> Bound<T> negativeInfinity() {
         return NEGATIVE_INFINITY;
@@ -14,34 +30,17 @@ public final class Bound<T extends Comparable<? super T>> implements Comparable<
         return POSITIVE_INFINITY;
     }
 
-    public static <T extends Comparable<? super T>> Bound<T> before(T point) {
-        return new Bound<>(point, false);
-    }
-
-    public static <T extends Comparable<? super T>> Bound<T> after(T point) {
-        return new Bound<>(point, true);
-    }
-
-    public static <T extends Comparable<? super T>> Bound<T> near(T point, boolean after) {
-        return new Bound<>(point, after);
-    }
+    @SuppressWarnings("rawtypes")
+    private static final Bound NEGATIVE_INFINITY = new Bound<>(null, false);
 
     @SuppressWarnings("rawtypes")
-    private static final Bound NEGATIVE_INFINITY = new Bound<>(false);
-
-    @SuppressWarnings("rawtypes")
-    private static final Bound POSITIVE_INFINITY = new Bound<>(true);
+    private static final Bound POSITIVE_INFINITY = new Bound<>(null, true);
 
     private final T point;
     private final boolean after;
 
-    private Bound(boolean positiveInfinity) {
-        this.point = null;
-        this.after = positiveInfinity;
-    }
-
     private Bound(T point, boolean after) {
-        this.point = Objects.requireNonNull(point, "point");
+        this.point = point;
         this.after = after;
     }
 
@@ -58,15 +57,15 @@ public final class Bound<T extends Comparable<? super T>> implements Comparable<
     }
 
     public T point() {
-        return ifNotInfinity(point);
+        return requireNonInfinity().point;
     }
 
     public boolean isBeforePoint() {
-        return ifNotInfinity(!after);
+        return !requireNonInfinity().after;
     }
 
     public boolean isAfterPoint() {
-        return ifNotInfinity(after);
+        return requireNonInfinity().after;
     }
 
     public boolean isBefore(T point) {
@@ -81,30 +80,37 @@ public final class Bound<T extends Comparable<? super T>> implements Comparable<
         return pointDiff > 0 || pointDiff == 0 && after;
     }
 
-    private <X> X ifNotInfinity(X arg) {
+    public Bound<T> requireNonInfinity() {
         if (point == null) throw new IllegalStateException("Infinity");
-        return arg;
+        return this;
     }
 
     @Override
     public int compareTo(Bound<T> that) {
-        if (this.point == null && that.point == null) return Boolean.compare(this.after, that.after);
-        if (this.point == null) return this.after ? +1 : -1;
-        if (that.point == null) return that.after ? -1 : +1;
+        if (this.point == null) {
+            if (that.point == null) return Boolean.compare(this.after, that.after);
+            return this.after ? +1 : -1;
+        }
+        if (that.point == null) {
+            return that.after ? -1 : +1;
+        }
         int pointDiff = this.point.compareTo(that.point);
-        return pointDiff != 0 ? pointDiff : Boolean.compare(this.after, that.after);
+        if (pointDiff != 0) return pointDiff;
+        return Boolean.compare(this.after, that.after);
     }
 
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        @SuppressWarnings("unchecked") Bound<T> that = (Bound<T>) obj;
-        try {
-            return this.compareTo(that) == 0;
-        } catch (ClassCastException notComparable) {
-            return false;
+        if (obj instanceof Bound) {
+            @SuppressWarnings("unchecked") Bound<T> that = (Bound<T>) obj;
+            try {
+                return this.compareTo(that) == 0;
+            } catch (ClassCastException notComparable) {
+                return false;
+            }
         }
+        return false;
     }
 
     @Override
@@ -115,7 +121,7 @@ public final class Bound<T extends Comparable<? super T>> implements Comparable<
     @Override
     public String toString() {
         if (point == null) return after ? "+∞" : "-∞";
-        return point + (after ? "+0" : "-0");
+        return point + (after ? "+δ" : "-δ");
     }
 
     public String asLowerBound() {
@@ -125,6 +131,9 @@ public final class Bound<T extends Comparable<? super T>> implements Comparable<
 
     public String asUpperBound() {
         if (point == null) return after ? "+∞)" : "-∞)";
-        return point + (after ? "]" : ")");
+        return Discrete.adapter(point)
+                .map(adapter -> adapter.prevValue(point).map(prev -> prev + "]")
+                        .orElseThrow(IllegalStateException::new))
+                .orElseGet(() -> point + (after ? "]" : ")"));
     }
 }
